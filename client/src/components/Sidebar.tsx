@@ -48,10 +48,10 @@ export default function Sidebar() {
             return (
               <li key={item.name}>
                 <Link href={item.href}>
-                  <a className={cn("nav-item", isActive && "active")}>
+                  <div className={cn("nav-item", isActive && "active")}>
                     <Icon size={18} />
                     <span>{item.name}</span>
-                  </a>
+                  </div>
                 </Link>
               </li>
             );
