@@ -1,10 +1,12 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Eye, BarChart3, Shield, Zap, Upload } from "lucide-react";
+import { Eye, BarChart3, Shield, Zap, Upload, Sun, Moon } from "lucide-react";
+import { useTheme } from "@/components/ThemeProvider";
 
 export default function Landing() {
+  const { theme, toggleTheme } = useTheme();
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5">
+    <div className="min-h-screen bg-background">
       <div className="absolute inset-0" style={{
         backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000' fill-opacity='0.02'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
         opacity: 0.3
@@ -21,14 +23,26 @@ export default function Landing() {
               <span className="text-2xl font-bold text-foreground">Take a Look</span>
             </div>
             <div className="flex items-center space-x-4">
+              <Button
+                variant="ghost"
+                aria-label="Toggle theme"
+                onClick={toggleTheme}
+                className="p-2 rounded-full border border-accent hover:bg-accent/20"
+              >
+                {theme === "light" ? (
+                  <Sun className="text-primary" size={20} />
+                ) : (
+                  <Moon className="text-accent" size={20} />
+                )}
+              </Button>
               <Button 
                 variant="outline"
-                onClick={() => window.location.href = "/api/login"}
+                onClick={() => window.location.href = "/login"}
               >
                 Sign In
               </Button>
               <Button 
-                onClick={() => window.location.href = "/api/login"}
+                onClick={() => window.location.href = "/login"}
               >
                 Get Started
               </Button>
@@ -51,7 +65,7 @@ export default function Landing() {
             <div className="flex items-center justify-center space-x-4">
               <Button 
                 size="lg" 
-                onClick={() => window.location.href = "/api/login"}
+                onClick={() => window.location.href = "/login"}
                 className="text-lg px-8 py-6"
               >
                 Start Analyzing Logs
@@ -156,7 +170,7 @@ export default function Landing() {
               <Button 
                 size="lg" 
                 variant="secondary"
-                onClick={() => window.location.href = "/api/login"}
+                onClick={() => window.location.href = "/login"}
                 className="text-lg px-8 py-6"
               >
                 Get Started Now

@@ -14,12 +14,12 @@ const upload = multer({
     fileSize: 10 * 1024 * 1024, // 10MB
   },
   fileFilter: (req, file, cb) => {
-    const allowedTypes = ['.log', '.txt'];
+    const allowedTypes = ['.log', '.txt', '.pdf'];
     const fileExt = file.originalname.toLowerCase().substring(file.originalname.lastIndexOf('.'));
     if (allowedTypes.includes(fileExt)) {
       cb(null, true);
     } else {
-      cb(new Error('Only .log and .txt files are allowed'));
+      cb(new Error('Only .log, .txt, and .pdf files are allowed'));
     }
   },
 });
@@ -73,8 +73,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // File upload and processing
   app.post('/api/logs/upload', upload.single('file'), async (req: any, res) => {
     try {
+      console.log('--- Upload endpoint hit ---');
+      console.log('Headers:', req.headers);
+      console.log('Body:', req.body);
+      console.log('File:', req.file);
       if (!req.file) {
-        return res.status(400).json({ message: "No file uploaded" });
+        console.error('No file uploaded. Multer req.file:', req.file);
+        return res.status(400).json({ message: "No file uploaded", debug: { headers: req.headers, body: req.body, multerFile: req.file } });
       }
 
       const fileContent = req.file.buffer.toString('utf-8');
@@ -83,7 +88,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check for duplicates
       const existingLog = await storage.getLogByHash(fileHash);
       if (existingLog) {
-        return res.status(409).json({ message: "File already exists" });
+        return res.status(409).json({ message: "File already exists", logId: existingLog.id });
       }
 
       // Create log entry
@@ -98,10 +103,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const log = await storage.createLog(logData);
 
-      // Process file asynchronously
+      // Procesar archivo y devolver conteo de errores por categoría
       fileProcessor.processLogFile(log.id, fileContent)
         .then(async (detectedErrors) => {
-          // Save detected errors
           for (const error of detectedErrors) {
             await storage.createError({
               logId: log.id,
@@ -111,49 +115,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
               severity: error.severity,
             });
           }
-
-          // Update log status
           await storage.updateLogStatus(log.id, "completed");
-
-          // Send Telegram notification if critical errors found
-          const criticalErrors = detectedErrors.filter(e => e.severity === 'critical');
-          if (criticalErrors.length > 0) {
-            await telegramService.sendErrorAlert(log.fileName, criticalErrors.length);
+          // Conteo por categoría
+          const resumen = { leve: 0, medio: 0, critico: 0 };
+          for (const err of detectedErrors) {
+            if (err.severity === 'leve') resumen.leve++;
+            if (err.severity === 'medio') resumen.medio++;
+            if (err.severity === 'critico') resumen.critico++;
           }
+          // Guardar notificación persistente
+          await storage.createNotification({
+            userId: "demo-user",
+            type: "processing_complete",
+            message: `Análisis de ${log.fileName}: Leve: ${resumen.leve}, Medio: ${resumen.medio}, Crítico: ${resumen.critico}`,
+            sent: false,
+          });
         })
         .catch(async (error) => {
           console.error("Error processing log file:", error);
           await storage.updateLogStatus(log.id, "failed");
         });
 
-      res.json(log);
+      // Responder de inmediato con el log y resumen vacío (el frontend puede hacer polling o esperar notificación)
+      res.json({ ...log, resumen: { leve: 0, medio: 0, critico: 0 }, status: 'processing' });
     } catch (error) {
       console.error("Error uploading file:", error);
-      res.status(500).json({ message: "Failed to upload file" });
+      res.status(500).json({ message: "Failed to upload file", debug: error?.message });
+    }
+  });
+
+  // Eliminar log y sus errores asociados
+  app.delete('/api/logs/:id', async (req, res) => {
+    try {
+      const log = await storage.getLogById(req.params.id);
+      if (!log) {
+        return res.status(404).json({ message: "Log not found" });
+      }
+      // Eliminar errores asociados
+      await storage.deleteErrorsByLogId(log.id);
+      // Eliminar log
+      await storage.deleteLog(log.id);
+      res.json({ message: "Log deleted" });
+    } catch (error) {
+      console.error("Error deleting log:", error);
+      res.status(500).json({ message: "Failed to delete log" });
     }
   });
 
   // Get all logs
   app.get('/api/logs', async (req, res) => {
     try {
+      console.log('--- /api/logs llamado ---');
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 50;
       const offset = (page - 1) * limit;
+      console.log('Parámetros:', { page, limit, offset });
 
       const logs = await storage.getAllLogs(limit, offset);
-      
-      // Get error counts for each log
+      console.log('Logs obtenidos:', logs);
+
       const logsWithErrorCounts = await Promise.all(
         logs.map(async (log) => {
-          const logErrors = await storage.getErrorsByLogId(log.id);
-          return { ...log, errorCount: logErrors.length };
+          try {
+            const logErrors = await storage.getErrorsByLogId(log.id);
+            console.log(`Errores para log ${log.id}:`, logErrors);
+            return { ...log, errorCount: logErrors.length };
+          } catch (e) {
+            console.error(`Error obteniendo errores para log ${log.id}:`, e);
+            return { ...log, errorCount: -1, error: String(e) };
+          }
         })
       );
 
+      console.log('logsWithErrorCounts:', logsWithErrorCounts);
       res.json(logsWithErrorCounts);
     } catch (error) {
       console.error("Error fetching logs:", error);
-      res.status(500).json({ message: "Failed to fetch logs" });
+      let debug = '';
+      try {
+        debug = typeof error === 'string' ? error : JSON.stringify(error, Object.getOwnPropertyNames(error));
+      } catch (e) {
+        debug = String(error);
+      }
+      res.status(500).json({ message: "Failed to fetch logs", debug });
     }
   });
 

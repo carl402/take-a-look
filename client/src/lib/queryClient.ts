@@ -11,16 +11,23 @@ export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
-): Promise<Response> {
-  const res = await fetch(url, {
+): Promise<any> {
+  let fetchOptions: RequestInit = {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
-  });
+  };
 
+  if (data instanceof FormData) {
+    fetchOptions.body = data;
+    // No Content-Type header for FormData
+  } else if (data) {
+    fetchOptions.headers = { "Content-Type": "application/json" };
+    fetchOptions.body = JSON.stringify(data);
+  }
+
+  const res = await fetch(url, fetchOptions);
   await throwIfResNotOk(res);
-  return res;
+  return res.json ? res.json() : res;
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";

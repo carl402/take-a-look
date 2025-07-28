@@ -2,7 +2,7 @@ interface DetectedError {
   type: string;
   message: string;
   lineNumber: number;
-  severity: 'low' | 'medium' | 'high' | 'critical';
+  severity: 'leve' | 'medio' | 'critico';
 }
 
 class FileProcessor {
@@ -16,14 +16,14 @@ class FileProcessor {
 
       // HTTP error patterns
       const httpErrorPatterns = [
-        { pattern: /\s400\s/, type: '400', severity: 'medium' as const, message: 'Bad Request' },
-        { pattern: /\s401\s/, type: '401', severity: 'high' as const, message: 'Unauthorized Access' },
-        { pattern: /\s403\s/, type: '403', severity: 'high' as const, message: 'Forbidden Access' },
-        { pattern: /\s404\s/, type: '404', severity: 'medium' as const, message: 'Resource Not Found' },
-        { pattern: /\s500\s/, type: '500', severity: 'critical' as const, message: 'Internal Server Error' },
-        { pattern: /\s502\s/, type: '502', severity: 'critical' as const, message: 'Bad Gateway' },
-        { pattern: /\s503\s/, type: '503', severity: 'critical' as const, message: 'Service Unavailable' },
-        { pattern: /\s504\s/, type: '504', severity: 'critical' as const, message: 'Gateway Timeout' },
+        { pattern: /\s400\s/, type: '400', severity: 'medio' as const, message: 'Bad Request' },
+        { pattern: /\s401\s/, type: '401', severity: 'critico' as const, message: 'Unauthorized Access' },
+        { pattern: /\s403\s/, type: '403', severity: 'critico' as const, message: 'Forbidden Access' },
+        { pattern: /\s404\s/, type: '404', severity: 'medio' as const, message: 'Resource Not Found' },
+        { pattern: /\s500\s/, type: '500', severity: 'critico' as const, message: 'Internal Server Error' },
+        { pattern: /\s502\s/, type: '502', severity: 'critico' as const, message: 'Bad Gateway' },
+        { pattern: /\s503\s/, type: '503', severity: 'critico' as const, message: 'Service Unavailable' },
+        { pattern: /\s504\s/, type: '504', severity: 'critico' as const, message: 'Gateway Timeout' },
       ];
 
       // Check for HTTP errors
@@ -40,14 +40,14 @@ class FileProcessor {
 
       // Application error patterns
       const appErrorPatterns = [
-        { pattern: /ERROR/i, type: 'APPLICATION_ERROR', severity: 'high' as const },
-        { pattern: /FATAL/i, type: 'FATAL_ERROR', severity: 'critical' as const },
-        { pattern: /WARN(ING)?/i, type: 'WARNING', severity: 'medium' as const },
-        { pattern: /EXCEPTION/i, type: 'EXCEPTION', severity: 'high' as const },
-        { pattern: /TIMEOUT/i, type: 'TIMEOUT', severity: 'high' as const },
-        { pattern: /CONNECTION\s+(FAILED|REFUSED|RESET)/i, type: 'CONNECTION_ERROR', severity: 'high' as const },
-        { pattern: /DATABASE\s+ERROR/i, type: 'DATABASE_ERROR', severity: 'critical' as const },
-        { pattern: /OUT\s+OF\s+MEMORY/i, type: 'MEMORY_ERROR', severity: 'critical' as const },
+        { pattern: /ERROR/i, type: 'APPLICATION_ERROR', severity: 'medio' as const },
+        { pattern: /FATAL/i, type: 'FATAL_ERROR', severity: 'critico' as const },
+        { pattern: /WARN(ING)?/i, type: 'WARNING', severity: 'leve' as const },
+        { pattern: /EXCEPTION/i, type: 'EXCEPTION', severity: 'medio' as const },
+        { pattern: /TIMEOUT/i, type: 'TIMEOUT', severity: 'medio' as const },
+        { pattern: /CONNECTION\s+(FAILED|REFUSED|RESET)/i, type: 'CONNECTION_ERROR', severity: 'medio' as const },
+        { pattern: /DATABASE\s+ERROR/i, type: 'DATABASE_ERROR', severity: 'critico' as const },
+        { pattern: /OUT\s+OF\s+MEMORY/i, type: 'MEMORY_ERROR', severity: 'critico' as const },
       ];
 
       // Check for application errors
@@ -64,11 +64,11 @@ class FileProcessor {
 
       // Security patterns
       const securityPatterns = [
-        { pattern: /SECURITY\s+VIOLATION/i, type: 'SECURITY_VIOLATION', severity: 'critical' as const },
-        { pattern: /FAILED\s+LOGIN/i, type: 'FAILED_LOGIN', severity: 'medium' as const },
-        { pattern: /BRUTE\s+FORCE/i, type: 'BRUTE_FORCE', severity: 'critical' as const },
-        { pattern: /SQL\s+INJECTION/i, type: 'SQL_INJECTION', severity: 'critical' as const },
-        { pattern: /XSS\s+ATTACK/i, type: 'XSS_ATTACK', severity: 'critical' as const },
+        { pattern: /SECURITY\s+VIOLATION/i, type: 'SECURITY_VIOLATION', severity: 'critico' as const },
+        { pattern: /FAILED\s+LOGIN/i, type: 'FAILED_LOGIN', severity: 'medio' as const },
+        { pattern: /BRUTE\s+FORCE/i, type: 'BRUTE_FORCE', severity: 'critico' as const },
+        { pattern: /SQL\s+INJECTION/i, type: 'SQL_INJECTION', severity: 'critico' as const },
+        { pattern: /XSS\s+ATTACK/i, type: 'XSS_ATTACK', severity: 'critico' as const },
       ];
 
       // Check for security issues

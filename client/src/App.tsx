@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/Landing";
+import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import UploadLogs from "@/pages/UploadLogs";
 import Reports from "@/pages/Reports";
@@ -17,14 +18,19 @@ import Header from "@/components/Header";
 
 const pageConfig = {
   "/": {
-    title: 'Dashboard',
-    subtitle: 'Monitor your log analysis activity',
-    component: Dashboard,
+    title: 'Upload Logs',
+    subtitle: 'Upload and process log files for analysis',
+    component: UploadLogs,
   },
   "/upload": {
     title: 'Upload Logs',
     subtitle: 'Upload and process log files for analysis',
     component: UploadLogs,
+  },
+  "/dashboard": {
+    title: 'Dashboard',
+    subtitle: 'Monitor your log analysis activity',
+    component: Dashboard,
   },
   "/reports": {
     title: 'Reports',
@@ -54,7 +60,9 @@ function AppLayout({ children, title, subtitle }: {
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title={title} subtitle={subtitle} />
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-background">
-          {children}
+          <div className="min-h-full">
+            {children}
+          </div>
         </main>
       </div>
     </div>
@@ -75,29 +83,29 @@ function Router() {
     );
   }
 
+  if (!isAuthenticated) {
+    return (
+      <Switch>
+        <Route path="/login" component={Login} />
+        <Route component={Login} />
+      </Switch>
+    );
+  }
+
   return (
     <Switch>
-      {!isAuthenticated ? (
-        <>
-          <Route path="/" component={Landing} />
-          <Route component={Landing} />
-        </>
-      ) : (
-        <>
-          {Object.entries(pageConfig).map(([path, config]) => (
-            <Route key={path} path={path}>
-              <AppLayout title={config.title} subtitle={config.subtitle}>
-                <config.component />
-              </AppLayout>
-            </Route>
-          ))}
-          <Route component={() => (
-            <AppLayout title="Page Not Found" subtitle="The requested page could not be found">
-              <NotFound />
-            </AppLayout>
-          )} />
-        </>
-      )}
+      {Object.entries(pageConfig).map(([path, config]) => (
+        <Route key={path} path={path}>
+          <AppLayout title={config.title} subtitle={config.subtitle}>
+            <config.component />
+          </AppLayout>
+        </Route>
+      ))}
+      <Route component={() => (
+        <AppLayout title="Page Not Found" subtitle="The requested page could not be found">
+          <NotFound />
+        </AppLayout>
+      )} />
     </Switch>
   );
 }

@@ -31,12 +31,14 @@ export interface IStorage {
   getLogsByUser(userId: string): Promise<Log[]>;
   updateLogStatus(id: string, status: string): Promise<Log>;
   getLogStats(): Promise<any>;
+  deleteLog(id: string): Promise<void>;
   
   // Error operations
   createError(error: InsertError): Promise<Error>;
   getErrorsByLogId(logId: string): Promise<Error[]>;
   getErrorStats(): Promise<any>;
   getErrorTrends(days: number): Promise<any[]>;
+  deleteErrorsByLogId(logId: string): Promise<void>;
   
   // Notification operations
   createNotification(notification: InsertNotification): Promise<Notification>;
@@ -188,6 +190,14 @@ export class DatabaseStorage implements IStorage {
       .where(gte(errors.createdAt, startDate))
       .groupBy(sql`DATE(${errors.createdAt})`)
       .orderBy(sql`DATE(${errors.createdAt})`);
+  }
+
+  async deleteErrorsByLogId(logId: string): Promise<void> {
+    await db.delete(errors).where(eq(errors.logId, logId));
+  }
+
+  async deleteLog(id: string): Promise<void> {
+    await db.delete(logs).where(eq(logs.id, id));
   }
 
   // Notification operations

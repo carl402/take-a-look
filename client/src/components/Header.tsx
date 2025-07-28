@@ -2,6 +2,15 @@ import { Bell, Sun, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/ThemeProvider";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 
 interface HeaderProps {
   title: string;
@@ -10,9 +19,32 @@ interface HeaderProps {
 
 export default function Header({ title, subtitle }: HeaderProps) {
   const { theme, toggleTheme } = useTheme();
+  const [open, setOpen] = useState(false);
+  const { data: logs } = useQuery({ queryKey: ["/api/logs"] });
+
+  // Generar notificaciones a partir de los logs
+  const notifications = Array.isArray(logs)
+    ? logs.map((log: any) => {
+        if (log.errorCount > 0) {
+          return {
+            id: log.id,
+            message: `Se detectaron ${log.errorCount} error(es) (${log.status}) en el archivo ${log.fileName}`,
+            type: log.status === 'completed' ? 'error' : 'info',
+            logId: log.id,
+          };
+        } else {
+          return {
+            id: log.id,
+            message: `¡Buen trabajo! No se detectaron errores en el archivo ${log.fileName}`,
+            type: 'success',
+            logId: log.id,
+          };
+        }
+      })
+    : [];
 
   return (
-    <header className="bg-card shadow-sm border-b border-border">
+    <header className="header bg-card backdrop-blur-sm shadow-sm border-b border-border" style={{ backgroundColor: 'hsl(var(--card) / 0.92)' }}>
       <div className="px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
@@ -39,16 +71,46 @@ export default function Header({ title, subtitle }: HeaderProps) {
             </Button>
 
             {/* Notifications */}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="relative text-muted-foreground hover:text-foreground"
-            >
-              <Bell size={18} />
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center">
-                3
-              </span>
-            </Button>
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="relative text-muted-foreground hover:text-foreground"
+                  aria-label="Ver notificaciones"
+                >
+                  <Bell size={18} />
+                  {notifications.length > 0 && (
+                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center">
+                      {notifications.length}
+                    </span>
+                  )}
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Notificaciones</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 max-h-80 overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <div className="text-muted-foreground text-center">No hay notificaciones</div>
+                  ) : (
+                    notifications.map((notif: any) => (
+                      <div key={notif.id} className="flex items-center justify-between gap-2 border-b pb-2">
+                        <div>
+                          <span className={notif.type === 'success' ? 'text-success' : notif.type === 'error' ? 'text-destructive' : 'text-warning'}>
+                            {notif.message}
+                          </span>
+                        </div>
+                        <Button size="sm" variant="outline" onClick={() => window.location.href = `/reports?log=${notif.logId}`}>
+                          Ver reporte
+                        </Button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
       </div>

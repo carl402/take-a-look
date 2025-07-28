@@ -10,8 +10,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Users as UsersIcon, UserCheck, UserX, Plus, Edit, Key, Ban, Check } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { isUnauthorizedError } from "@/lib/authUtils";
-import { apiRequest } from "@/lib/queryClient";
+import AddUserDialog from "@/components/AddUserDialog";
+import EditUserDialog from "@/components/EditUserDialog";
 
 export default function Users() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -20,43 +20,55 @@ export default function Users() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Redirect to home if not authenticated
+  // Redirect to login if not authenticated
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       toast({
         title: "Unauthorized",
-        description: "You are logged out. Logging in again...",
+        description: "Please log in to access this page.",
         variant: "destructive",
       });
       setTimeout(() => {
-        window.location.href = "/api/login";
-      }, 500);
+        window.location.href = "/login";
+      }, 1000);
       return;
     }
   }, [isAuthenticated, isLoading, toast]);
 
   const { data: users, isLoading: usersLoading, error } = useQuery({
     queryKey: ["/api/users"],
+    queryFn: () => {
+      // Simular carga de usuarios desde localStorage
+      const storedUsers = JSON.parse(localStorage.getItem('users') || '[]');
+      // Añadir usuario admin por defecto si no existe
+      if (storedUsers.length === 0) {
+        const defaultAdmin = {
+          id: '1',
+          firstName: 'Admin',
+          lastName: 'User',
+          email: 'admin@test.com',
+          role: 'admin',
+          createdAt: new Date().toISOString(),
+          isActive: true
+        };
+        storedUsers.push(defaultAdmin);
+        localStorage.setItem('users', JSON.stringify(storedUsers));
+      }
+      return storedUsers;
+    },
     enabled: isAuthenticated && user?.role === 'admin',
   });
 
-  useEffect(() => {
-    if (error && isUnauthorizedError(error as Error)) {
-      toast({
-        title: "Unauthorized",
-        description: "You are logged out. Logging in again...",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        window.location.href = "/api/login";
-      }, 500);
-      return;
-    }
-  }, [error, toast]);
+
 
   const updateRoleMutation = useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
-      return await apiRequest('PATCH', `/api/users/${userId}/role`, { role });
+      const users = JSON.parse(localStorage.getItem('users') || '[]');
+      const updatedUsers = users.map((u: any) => 
+        u.id === userId ? { ...u, role } : u
+      );
+      localStorage.setItem('users', JSON.stringify(updatedUsers));
+      return { userId, role };
     },
     onSuccess: () => {
       toast({
@@ -65,18 +77,7 @@ export default function Users() {
       });
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
     },
-    onError: (error) => {
-      if (isUnauthorizedError(error as Error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
+    onError: () => {
       toast({
         title: "Error",
         description: "Failed to update user role",
@@ -87,7 +88,12 @@ export default function Users() {
 
   const deactivateUserMutation = useMutation({
     mutationFn: async (userId: string) => {
-      return await apiRequest('PATCH', `/api/users/${userId}/deactivate`);
+      const users = JSON.parse(localStorage.getItem('users') || '[]');
+      const updatedUsers = users.map((u: any) => 
+        u.id === userId ? { ...u, isActive: false } : u
+      );
+      localStorage.setItem('users', JSON.stringify(updatedUsers));
+      return userId;
     },
     onSuccess: () => {
       toast({
@@ -96,18 +102,7 @@ export default function Users() {
       });
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
     },
-    onError: (error) => {
-      if (isUnauthorizedError(error as Error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
+    onError: () => {
       toast({
         title: "Error",
         description: "Failed to deactivate user",
@@ -181,10 +176,12 @@ export default function Users() {
           <h2 className="text-2xl font-bold text-foreground">User Management</h2>
           <p className="text-muted-foreground">Manage system users and their permissions</p>
         </div>
-        <Button>
-          <Plus className="mr-2" size={18} />
-          Add User
-        </Button>
+        <AddUserDialog>
+          <Button>
+            <Plus className="mr-2" size={18} />
+            Add User
+          </Button>
+        </AddUserDialog>
       </div>
 
       {/* User Stats */}
@@ -337,9 +334,10 @@ export default function Users() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                           <div className="flex items-center space-x-2">
-                            <Button variant="ghost" size="sm" title="Edit User">
-                              <Edit size={16} />
-                            </Button>
+                            <EditUserDialog 
+                              user={userItem} 
+                              onUserUpdated={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })}
+                            />
                             <Button variant="ghost" size="sm" title="Reset Password">
                               <Key size={16} />
                             </Button>
@@ -354,7 +352,23 @@ export default function Users() {
                                 <Ban size={16} />
                               </Button>
                             ) : (
-                              <Button variant="ghost" size="sm" title="Activate">
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                title="Activate"
+                                onClick={() => {
+                                  const users = JSON.parse(localStorage.getItem('users') || '[]');
+                                  const updatedUsers = users.map((u: any) => 
+                                    u.id === userItem.id ? { ...u, isActive: true } : u
+                                  );
+                                  localStorage.setItem('users', JSON.stringify(updatedUsers));
+                                  queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+                                  toast({
+                                    title: "User activated",
+                                    description: "The user has been successfully activated.",
+                                  });
+                                }}
+                              >
                                 <Check size={16} />
                               </Button>
                             )}

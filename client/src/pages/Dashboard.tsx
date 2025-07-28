@@ -8,7 +8,6 @@ import Chart from "chart.js/auto";
 import ErrorResolutionSuggestions from "@/components/ErrorResolutionSuggestions";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { isUnauthorizedError } from "@/lib/authUtils";
 import { useEffect as useEffectAuth } from "react";
 
 export default function Dashboard() {
@@ -19,39 +18,96 @@ export default function Dashboard() {
   const errorTypesChart = useRef<Chart | null>(null);
   const timelineChart = useRef<Chart | null>(null);
 
-  // Redirect to home if not authenticated
+  // Generar datos del dashboard basados en reportes reales
+  const generateDashboardData = () => {
+    const reports = JSON.parse(localStorage.getItem('reports') || '[]');
+    
+    const totalFiles = reports.length;
+    const totalErrors = reports.reduce((sum: number, report: any) => sum + report.totalErrors, 0);
+    
+    const errorDistribution = [
+      { errorType: 'Crítico', count: reports.reduce((sum: number, r: any) => sum + (r.summary?.critical || 0), 0) },
+      { errorType: 'Alto', count: reports.reduce((sum: number, r: any) => sum + (r.summary?.high || 0), 0) },
+      { errorType: 'Medio', count: reports.reduce((sum: number, r: any) => sum + (r.summary?.medium || 0), 0) },
+      { errorType: 'Bajo', count: reports.reduce((sum: number, r: any) => sum + (r.summary?.low || 0), 0) }
+    ];
+    
+    const successRate = totalFiles > 0 ? ((totalFiles - reports.filter((r: any) => r.totalErrors > 50).length) / totalFiles * 100) : 100;
+    
+    return {
+      totalFiles,
+      totalErrors,
+      processingTime: '2.3s',
+      successRate,
+      errorDistribution,
+      recentActivity: reports.slice(-3).reverse().map((report: any, index: number) => ({
+        type: 'upload',
+        message: `Archivo analizado: ${report.fileName}`,
+        time: new Date(report.analyzedAt).toLocaleString('es-ES', { 
+          day: 'numeric', 
+          month: 'short', 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        }),
+        count: report.totalErrors
+      }))
+    };
+  };
+
+  const exportDashboard = () => {
+    const dashboardData = generateDashboardData();
+    
+    const csvContent = `Exportación Dashboard - ${new Date().toLocaleString('es-ES')}\n\n` +
+      `Estadísticas Resumen\n` +
+      `Total Archivos Log,${dashboardData.totalFiles}\n` +
+      `Total Errores Detectados,${dashboardData.totalErrors}\n` +
+      `Tiempo Promedio Procesamiento,${dashboardData.processingTime}\n` +
+      `Tasa de Éxito,${dashboardData.successRate.toFixed(1)}%\n\n` +
+      `Distribución de Errores\n` +
+      `Tipo de Error,Cantidad\n` +
+      dashboardData.errorDistribution.map(item => `${item.errorType},${item.count}`).join('\n') +
+      `\n\nActividad Reciente\n` +
+      `Tipo,Mensaje,Fecha\n` +
+      dashboardData.recentActivity.map(item => `"${item.type}","${item.message}","${item.time}"`).join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `dashboard_export_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    
+    toast({
+      title: "Dashboard Exportado",
+      description: "Los datos del dashboard han sido exportados a CSV.",
+    });
+  };
+
+  // Redirect to login if not authenticated
   useEffectAuth(() => {
     if (!isLoading && !isAuthenticated) {
       toast({
         title: "Unauthorized",
-        description: "You are logged out. Logging in again...",
+        description: "Please log in to access this page.",
         variant: "destructive",
       });
       setTimeout(() => {
-        window.location.href = "/api/login";
-      }, 500);
+        window.location.href = "/login";
+      }, 1000);
       return;
     }
   }, [isAuthenticated, isLoading, toast]);
 
   const { data: stats, isLoading: statsLoading, error } = useQuery({
     queryKey: ["/api/dashboard/stats"],
+    queryFn: () => generateDashboardData(),
     enabled: isAuthenticated,
   }) as { data: any, isLoading: boolean, error: any };
 
-  useEffect(() => {
-    if (error && isUnauthorizedError(error as Error)) {
-      toast({
-        title: "Unauthorized",
-        description: "You are logged out. Logging in again...",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        window.location.href = "/api/login";
-      }, 500);
-      return;
-    }
-  }, [error, toast]);
+
 
   useEffect(() => {
     if (stats && errorTypesRef.current && timelineRef.current) {
@@ -154,7 +210,7 @@ export default function Dashboard() {
               <FileText className="text-primary" size={24} />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-muted-foreground">Total Log Files</p>
+              <p className="text-sm font-medium text-muted-foreground">Total Archivos Log</p>
               <p className="text-3xl font-bold text-foreground">
                 {statsLoading ? <Skeleton className="h-8 w-16" /> : stats?.totalFiles || 0}
               </p>
@@ -168,7 +224,7 @@ export default function Dashboard() {
               <AlertTriangle className="text-destructive" size={24} />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-muted-foreground">Errors Detected</p>
+              <p className="text-sm font-medium text-muted-foreground">Errores Detectados</p>
               <p className="text-3xl font-bold text-foreground">
                 {statsLoading ? <Skeleton className="h-8 w-16" /> : stats?.totalErrors || 0}
               </p>
@@ -182,7 +238,7 @@ export default function Dashboard() {
               <Clock className="text-warning" size={24} />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-muted-foreground">Processing Time</p>
+              <p className="text-sm font-medium text-muted-foreground">Tiempo de Procesamiento</p>
               <p className="text-3xl font-bold text-foreground">2.3s</p>
             </div>
           </CardContent>
@@ -194,7 +250,7 @@ export default function Dashboard() {
               <CheckCircle className="text-success" size={24} />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-muted-foreground">Success Rate</p>
+              <p className="text-sm font-medium text-muted-foreground">Tasa de Éxito</p>
               <p className="text-3xl font-bold text-foreground">
                 {statsLoading ? <Skeleton className="h-8 w-16" /> : `${stats?.successRate?.toFixed(1) || 0}%`}
               </p>
@@ -209,8 +265,8 @@ export default function Dashboard() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
-              <span>Error Distribution</span>
-              <div className="text-primary cursor-pointer" title="Common error types found in logs">
+              <span>Distribución de Errores</span>
+              <div className="text-primary cursor-pointer" title="Tipos de errores comunes encontrados en logs">
                 ℹ️
               </div>
             </CardTitle>
@@ -236,11 +292,11 @@ export default function Dashboard() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
-              <span>Error Trends (Last 7 Days)</span>
+              <span>Tendencias de Errores (Últimos 7 Días)</span>
               <select className="text-sm border border-input rounded-md px-3 py-1">
-                <option>Last 7 days</option>
-                <option>Last 30 days</option>
-                <option>Last 3 months</option>
+                <option>Últimos 7 días</option>
+                <option>Últimos 30 días</option>
+                <option>Últimos 3 meses</option>
               </select>
             </CardTitle>
           </CardHeader>
@@ -263,9 +319,9 @@ export default function Dashboard() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
-                <span>Recent Activity</span>
+                <span>Actividad Reciente</span>
                 <Button variant="ghost" size="sm" className="text-primary">
-                  View All
+                  Ver Todo
                 </Button>
               </CardTitle>
             </CardHeader>
@@ -329,28 +385,37 @@ export default function Dashboard() {
         {/* Quick Actions */}
         <Card>
           <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
+            <CardTitle>Acciones Rápidas</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              <Button className="w-full" size="lg">
+              <Button 
+                className="w-full" 
+                size="lg"
+                onClick={() => window.location.href = '/upload'}
+              >
                 <Upload className="mr-2" size={18} />
-                Upload New Log
+                Subir Nuevo Log
               </Button>
 
-              <Button variant="outline" className="w-full" size="lg">
+              <Button 
+                variant="outline" 
+                className="w-full" 
+                size="lg"
+                onClick={exportDashboard}
+              >
                 <Download className="mr-2" size={18} />
-                Export Report
+                Exportar Dashboard
               </Button>
 
               <Button variant="outline" className="w-full" size="lg">
                 <Send className="mr-2" size={18} />
-                Send to Telegram
+                Enviar a Telegram
               </Button>
 
               <Button variant="outline" className="w-full" size="lg">
                 <SettingsIcon className="mr-2" size={18} />
-                Configure Alerts
+                Configurar Alertas
               </Button>
             </div>
           </CardContent>
