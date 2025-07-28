@@ -7,14 +7,6 @@ export default defineConfig({
   plugins: [
     react(),
     ...(process.env.NODE_ENV !== "production" ? [runtimeErrorOverlay()] : []),
-    ...(process.env.NODE_ENV !== "production" &&
-    process.env.REPL_ID !== undefined
-      ? [
-          await import("@replit/vite-plugin-cartographer").then((m) =>
-            m.cartographer(),
-          ),
-        ]
-      : []),
   ],
   resolve: {
     alias: {
@@ -27,11 +19,24 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "client", "dist"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          ui: ['@radix-ui/react-toast', '@radix-ui/react-dropdown-menu'],
+          charts: ['chart.js']
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000
   },
   server: {
     fs: {
       strict: true,
       deny: ["**/.*"],
     },
+  },
+  define: {
+    global: 'globalThis',
   },
 });
