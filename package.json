@@ -4,10 +4,9 @@
   "description": "Sistema de Análisis de Logs - Take a Look",
   "main": "index.js",
   "scripts": {
-    "dev": "cd client && npm run dev",
-    "build": "cd client && npm run build",
-    "preview": "cd client && npm run preview",
-    "install-deps": "cd client && npm install"
+    "dev": "echo 'Use: cd client && npm run dev'",
+    "build": "echo 'Use: cd client && npm run build'",
+    "preview": "echo 'Use: cd client && npm run preview'"
   },
   "keywords": ["log-analysis", "react", "typescript", "vite"],
   "author": "Tu Nombre",
